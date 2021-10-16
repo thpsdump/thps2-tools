@@ -14,6 +14,14 @@ class IncompatibleHEDFile(Exception):
   """ Raised when input HED file can't be processed """
   pass
 
+class PathNotFound(Exception):
+  """ Raised when path cannot be found """
+  pass
+
+class FileNotFound(Exception):
+  """ Raised when file cannot be found """
+  pass
+
 def main(args):
 
   hed = args.hed
@@ -42,6 +50,7 @@ def main(args):
     raise PathNotFound("CD.WAD not found: %s" % wad)
     pass
 
+  _log("Processing %s" % hed)
   # Open the HED file
   with open(hed, "rb") as f:
 
@@ -60,30 +69,28 @@ def main(args):
           # hacky filename check
           if not re.match('^[A-Za-z0-9-.].+', name):
             raise IncompatibleHEDFile ("Failed to decode a reasonable filename, this hed isn't compatible")
+          #FIXME: Check for terminator?
+          align(f, 4)
+          offset = read32(f)
+          size = read32(f)
+
+          fw.seek(offset)
+
+          if not list_only:
+            # Construct path
+            file_export_path = os.path.join(export_path, name)
+
+            # Extract file
+            _log("Extracting %s" % file_export_path)
+            with open(file_export_path, "wb") as fo:
+              data = fw.read(size)
+              fo.write(data)
+          else:
+            _log("HED Found: file=%s offset=%s" % (name, f.tell()) )
         except IncompatibleHEDFile as e:
           _log(e)
           exit(1)
 
-        #FIXME: Check for terminator?
-        align(f, 4)
-        offset = read32(f)
-        size = read32(f)
-
-        fw.seek(offset)
-
-
-        if not list_only:
-          # Construct path
-          file_export_path = os.path.join(export_path, name)
-
-
-          # Extract file
-          _log("Extracting %s" % file_export_path)
-          with open(file_export_path, "wb") as fo:
-            data = fw.read(size)
-            fo.write(data)
-
-        _log("HED Found: file=%s offset=%s" % (name, f.tell()) )
 
     terminator = read8(f)
     assert(terminator == 0xFF)
